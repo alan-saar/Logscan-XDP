@@ -47,8 +47,35 @@ graph TD;
 
 ---
 
+## 📁 Project Structure
+
+- `assets/`: Static assets such as logos and images.
+- `src/`: Source code directory for the project.
+  - `ebpf/`: eBPF/XDP C programs and libbpf headers to be injected into the kernel (Data Plane).
+  - `logscan/`: User-space Python daemon using bcc to interface with eBPF maps and perform log clustering (Control Plane).
+
+---
+
 ## 🛠️ Build & Usage
 
+**Build:**
+```bash
+# Build instructions to be defined
+```
+
+**Usage:**
+```bash
+# Usage instructions to be defined
+```
+
+---
+
+## 🧪 Tests
+
+**Run tests:**
+```bash
+# Test instructions to be defined
+```
 
 ---
 
