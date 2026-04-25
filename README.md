@@ -1,7 +1,7 @@
 <div align="center">
     <img src="assets/logo.png" width="400" alt="Logscan-XDP Logo">
     <h1>🛡️ Logscan-XDP</h1>
-    <i>High-Performance Security Logscanner powered by DBSCAN and C-eBPF.</i>
+    <i>Dynamic Threat Mitigation in the Kernel based on Automatic Log Clustering powered by DBSCAN and C-eBPF</i>
     <br>
     <b>Version: 1.0</b>
 </div>
@@ -24,22 +24,22 @@ graph TD;
     classDef user fill:#dae8fc,stroke:#333,stroke-width:2px;
     classDef external fill:#fff2cc,stroke:#333,stroke-width:2px;
 
-    Attacker([Attacker Traffic / Script]) -->|Pacotes| NIC(Network Interface Card):::kernel
+    Attacker([Attacker Traffic / Script]) -->|Packets| NIC(Network Interface Card):::kernel
 
-    subgraph Kernel Space [Espaço de Kernel - eBPF]
+    subgraph Kernel Space [Kernel Space - eBPF]
         NIC --> XDPProg{XDP Program}:::kernel
-        XDPProg -->|Lookup do IP Malicioso| BPFMap[(eBPF Hash Map)]:::kernel
-        XDPProg -- Se estiver no Mapa --> DropPacket((XDP_DROP <br/> Pacote Cai)):::kernel
-        XDPProg -- Se limpo --> NetStack[Linux Network Stack]:::kernel
+        XDPProg -->|Lookup Malicious IP | BPFMap[(eBPF Hash Map)]:::kernel
+        XDPProg -- If in the Map --> DropPacket((XDP_DROP <br/>)):::kernel
+        XDPProg -- If clean --> NetStack[Linux Network Stack]:::kernel
     end
 
-    subgraph User Space [Espaço de Usuário]
+    subgraph User Space [User Space]
         NetStack --> App[Application <br/> Apache / SSHD]:::user
-        App -->|Escreve Textos| LogFile[(File: /var/log/*)]:::user
+        App -->|Writes Logfile| LogFile[(File: /var/log/*)]:::user
         LogFile -->|Real-time Tail| LogScan[Logscan Pipeline <br/> DBSCAN + TF-IDF]:::user
-        LogScan -->|Avalia Clusters de Padrões| AnomalyDetect{Cluster <br/> é Anômalo?}:::user
-        AnomalyDetect -- Sim --> ExtractIP[Extrai IP fonte <br/> do template]:::user
-        ExtractIP -.-> |Atualiza as chaves <br/> via Syscall bpf| BPFMap
+        LogScan -->|Evaluate Pattern Clusters| AnomalyDetect{Cluster <br/> is Anomalous?}:::user
+        AnomalyDetect -- Yes --> ExtractIP[Extract source IP <br/> from template]:::user
+        ExtractIP -.-> |Update the keys <br/> via bpf syscalls| BPFMap
     end
 
     class Attacker,NIC,DropPacket external;
