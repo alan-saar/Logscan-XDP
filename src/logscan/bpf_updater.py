@@ -1,66 +1,84 @@
 """
 @file bpf_updater.py
-@brief Módulo de interação com o Data Plane (eBPF) via pylibbpf.
+@brief Módulo de interação com o Data Plane (eBPF) via bpftool.
 
-Este arquivo isola as chamadas para as syscalls bpf(), utilizando a
-biblioteca pylibbpf para encontrar o mapa pinado no kernel e 
-atualizar seu conteúdo com o IP convertido.
+Este arquivo isola as chamadas para atualização dos mapas eBPF. Ele atua
+como uma ponte agnóstica de ambiente, disparando as atualizações através da
+ferramenta CLI `bpftool`. Se acionado em modo de container (testes), 
+orquestrará comandos Docker; caso contrário, executará nativamente no Host.
 """
 
 import socket
 import struct
-
-# Como pylibbpf pode não estar instalado na máquina de teste ainda, 
-# tratamos a importação para evitar quebra imediata do daemon.
-try:
-    import pylibbpf
-    PYLIBBPF_AVAILABLE = True
-except ImportError:
-    PYLIBBPF_AVAILABLE = False
-    print("[Aviso] pylibbpf não encontrado. Operando em modo de simulação.")
+import subprocess
 
 class BpfUpdater:
     """
-    Classe para realizar o mapeamento do IP extraído e enviar para o kernel.
+    Classe para realizar o mapeamento do IP extraído e atualizar o mapa BPF 
+    diretamente via comando CLI bpftool.
     """
     
-    def __init__(self, map_name="malicious_ips"):
+    def __init__(self, map_name="malicious_ips", container_name=None):
         """
-        Inicializa o updater buscando a referência do mapa no kernel.
+        Inicializa o updater com o nome do mapa alvo.
         
         :param map_name: Nome do mapa exportado pelo código XDP.
+        :param container_name: Se fornecido, usa docker exec para atualizar o mapa no container de testes.
         """
         self.map_name = map_name
-        self.map_fd = None
-        
-        if PYLIBBPF_AVAILABLE:
-            # TODO: Obter o file descriptor do mapa BPF fixado no sysfs (ex: /sys/fs/bpf/malicious_ips)
-            pass
+        self.container_name = container_name
 
     def _ip_to_network_bytes(self, ip_str: str) -> bytes:
         """
         Converte um IP em string para o formato Network Byte Order (__u32).
-        
         Ex: '192.168.10.2' -> b'\xc0\xa8\n\x02'
         
-        :param ip_str: IP em string.
-        :return: Array de bytes.
+        :param ip_str: O endereço IP em formato de texto.
+        :return: A representação binária do IP.
         """
-        # inet_aton já converte para network byte order
         return socket.inet_aton(ip_str)
+
+    def _update_map(self, ip_bytes: bytes, value_bytes: bytes):
+        """
+        Atualiza o mapa via `bpftool` (localmente ou via docker exec).
+        
+        :param ip_bytes: Chave formatada em binário (IP).
+        :param value_bytes: Valor formatado em binário (Contador/Flag).
+        """
+        # Converte bytes para representação hex que o bpftool espera, ex: "c0 a8 0a 02"
+        key_hex = " ".join([f"{b:02x}" for b in ip_bytes])
+        val_hex = " ".join([f"{b:02x}" for b in value_bytes])
+        
+        prefix = f"docker exec {self.container_name} " if self.container_name else "sudo "
+        ambiente = f"no container {self.container_name}" if self.container_name else "no host local"
+        
+        print(f"[BPF Updater] Injetando regra {ambiente} via bpftool...")
+        
+        # Obtém o ID do mapa dinamicamente
+        cmd_get_id = f"{prefix}bpftool map list | grep {self.map_name} | cut -d':' -f1"
+        try:
+            map_id_str = subprocess.check_output(cmd_get_id, shell=True, text=True).strip()
+            if not map_id_str:
+                print(f"[!] Erro: Mapa {self.map_name} não encontrado {ambiente}.")
+                return
+            
+            # Atualiza o mapa injetando os bytes formatados em hex
+            cmd_update = f"{prefix}bpftool map update id {map_id_str} key hex {key_hex} value hex {val_hex}"
+            subprocess.check_call(cmd_update, shell=True)
+            print(f"[+] Regra injetada com sucesso no BPF map (ID: {map_id_str})!")
+        except subprocess.CalledProcessError as e:
+            print(f"[!] Falha ao executar bpftool {ambiente}: {e}")
 
     def block_ip(self, ip_str: str):
         """
-        Atualiza o mapa eBPF para incluir o IP malicioso, sinalizando drop.
+        Atualiza o mapa eBPF para incluir o IP malicioso, sinalizando drop imediato
+        pelo programa XDP (Data Plane).
         
-        :param ip_str: O endereço IP a ser bloqueado.
+        :param ip_str: Endereço IP do atacante.
         """
         ip_bytes = self._ip_to_network_bytes(ip_str)
-        # O XDP espera um valor __u64 (8 bytes). O formato "Q" empacota um unsigned long long nativo.
+        # O XDP espera um valor __u64 (8 bytes). 
+        # O formato "Q" no struct empacota um unsigned long long nativo.
         value_bytes = struct.pack("Q", 1) 
         
-        if PYLIBBPF_AVAILABLE and self.map_fd:
-            print(f"[BPF] pylibbpf: Inserindo IP {ip_str} no mapa.")
-            # pylibbpf.bpf_map_update_elem(self.map_fd, ip_bytes, value_bytes, pylibbpf.BPF_ANY)
-        else:
-            print(f"[BPF Mock] Simulação: IP {ip_str} (Bytes da chave: {ip_bytes.hex()}) bloqueado no mapa '{self.map_name}'.")
+        self._update_map(ip_bytes, value_bytes)

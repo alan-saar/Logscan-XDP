@@ -19,14 +19,17 @@ def main():
     """
     parser = argparse.ArgumentParser(description="Logscan-XDP Daemon")
     parser.add_argument("--log", type=str, required=True, help="Caminho do log a ser monitorado (ex: /var/log/auth.log)")
+    parser.add_argument("--container-name", type=str, help="Nome do container docker (para ambiente de teste Containerlab)", default=None)
     args = parser.parse_args()
 
     print(f"[*] Iniciando Logscan-XDP Daemon...")
     print(f"[*] Monitorando arquivo: {args.log}")
+    if args.container_name:
+        print(f"[*] Modo Teste Ativo: Atualizando BPF Map via docker exec no container '{args.container_name}'")
 
     tailer = LogTailer(args.log)
     scanner = LogScanner()
-    bpf_updater = BpfUpdater(map_name="malicious_ips")
+    bpf_updater = BpfUpdater(map_name="malicious_ips", container_name=args.container_name)
 
     try:
         # Pipeline contínuo

@@ -9,3 +9,9 @@ tests/containerlab/clab-logscan/
 
 # Containerlab graph layout annotations (optional, remove to track position)
 *.annotations.json
+
+# Ignore __pycache__ folders
+**/__pycache__/
+
+# Ignore all compiled Python
+*.pyc
