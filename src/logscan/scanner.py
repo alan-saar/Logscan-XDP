@@ -10,6 +10,7 @@ e definir se um novo cluster formado representa uma anomalia.
 import re
 import logging
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.cluster import DBSCAN
 
 # Configura o logger para a classe scanner
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -19,13 +20,17 @@ class LogScanner:
     Classe contendo a lógica de machine learning e clustering.
     """
     
-    def __init__(self):
+    def __init__(self, eps: float = 0.5, min_samples: int = 3):
         """
-        Inicializa o scanner e o vetorizador TF-IDF.
+        Inicializa o scanner, o vetorizador TF-IDF e o motor DBSCAN.
+        
+        :param eps: Distância máxima entre vetores para formar um cluster.
+        :param min_samples: Número mínimo de vetores num cluster para não ser ruído.
         """
         # Inicializa o TF-IDF ignorando "stop words" comuns do inglês se desejar,
         # ou limitando o número de features para melhor performance.
         self.vectorizer = TfidfVectorizer(max_features=5000)
+        self.clusterer = DBSCAN(eps=eps, min_samples=min_samples)
 
     def _preprocess_log(self, line: str) -> str:
         """
@@ -53,7 +58,7 @@ class LogScanner:
     def process_window(self, log_lines: list) -> set:
         """
         Ingere um lote de linhas de log, extrai as matrizes TF-IDF e,
-        futuramente, aplicará a clusterização.
+        aplica a clusterização via DBSCAN para detectar anomalias densas.
         
         :param log_lines: Lista de strings contendo as linhas da janela atual.
         :return: Um conjunto (set) contendo os IPs identificados como anômalos.
@@ -64,24 +69,27 @@ class LogScanner:
         # Etapa 1: Pré-processamento e extração de Templates
         cleaned_logs = [self._preprocess_log(line) for line in log_lines]
         
-        # Etapa 2: Vetorização (TF-IDF)
+        # Etapa 2: Vetorização (TF-IDF) e Clusterização (DBSCAN)
         try:
             # fit_transform gera a Matriz Esparsa
             feature_matrix = self.vectorizer.fit_transform(cleaned_logs)
             logging.info(f"[ML] TF-IDF extraiu feature matrix com shape: {feature_matrix.shape}")
-            # Em breve, a feature_matrix será passada para o DBSCAN
-        except ValueError as e:
-            # Em caso de log_lines totalmente vazios ou sem vocabulário
-            logging.warning(f"[ML] Aviso na vetorização TF-IDF: {e}")
+            
+            # Etapa 3: Aplicar DBSCAN
+            labels = self.clusterer.fit_predict(feature_matrix)
+            
+            anomalous_ips = set()
+            for idx, label in enumerate(labels):
+                if label != -1:  # Se não é ruído (-1), pertence a um cluster denso (ataque)
+                    log_line = log_lines[idx]
+                    # Extrai o IPv4 original usando a regex
+                    ip_match = re.search(r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b', log_line)
+                    if ip_match:
+                        anomalous_ips.add(ip_match.group(0))
+                        
+            return anomalous_ips
 
-        # --- Lógica de Mock de IP Temporária ---
-        # Mantemos o Mock do Regex apenas para não quebrar a lógica de bloqueios já existente
-        # até que o DBSCAN seja plugado na próxima iteração e passe a rotear os verdadeiros IPs.
-        anomalous_ips = set()
-        for log_line in log_lines:
-            if "Failed password" in log_line or "Anomalia" in log_line:
-                ip_match = re.search(r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b', log_line)
-                if ip_match:
-                    anomalous_ips.add(ip_match.group(0))
-                
-        return anomalous_ips
+        except ValueError as e:
+            # Em caso de log_lines totalmente vazios ou sem vocabulário (ex: matriz 0 features)
+            logging.warning(f"[ML] Aviso na vetorização/clusterização: {e}")
+            return set()

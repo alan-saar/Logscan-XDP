@@ -46,8 +46,10 @@ DAEMON_PID=$!
 sleep 2
 
 # Simula uma anomalia vinda do Attacker (192.168.10.2)
-echo "[*] Escrevendo linha de anomalia no log..."
+echo "[*] Escrevendo anomalia (rajada) no log..."
 echo "May 20 12:00:00 server sshd[1234]: Failed password for invalid user root from 192.168.10.2 port 40562 ssh2" >> $DUMMY_LOG
+echo "May 20 12:00:01 server sshd[1235]: Failed password for invalid user root from 192.168.10.2 port 40562 ssh2" >> $DUMMY_LOG
+echo "May 20 12:00:02 server sshd[1236]: Failed password for invalid user root from 192.168.10.2 port 40562 ssh2" >> $DUMMY_LOG
 sleep 3
 
 echo ""

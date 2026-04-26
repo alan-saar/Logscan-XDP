@@ -31,6 +31,10 @@ def main():
                         help="Docker container name (for Containerlab testbed environment)")
     parser.add_argument("-w", "--window", type=int, default=10,
                         help="Time window in seconds for batch analysis (default: 10)")
+    parser.add_argument("--eps", type=float, default=0.5,
+                        help="DBSCAN maximum distance between two samples (default: 0.5)")
+    parser.add_argument("--min-samples", type=int, default=3,
+                        help="DBSCAN minimum samples to form a dense cluster (default: 3)")
     
     args = parser.parse_args()
 
@@ -41,7 +45,7 @@ def main():
         print(f"[*] Test Mode Active: Updating BPF Map via docker exec in container '{args.container_name}'")
 
     tailer = LogTailer(args.log)
-    scanner = LogScanner()
+    scanner = LogScanner(eps=args.eps, min_samples=args.min_samples)
     bpf_updater = BpfUpdater(map_name="malicious_ips", container_name=args.container_name)
 
     current_batch = []
