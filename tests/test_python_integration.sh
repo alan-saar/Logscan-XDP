@@ -40,8 +40,8 @@ DUMMY_LOG="/tmp/dummy_auth.log"
 touch $DUMMY_LOG
 
 # Inicia o daemon python em background
-echo "[*] Iniciando src/logscan/main.py..."
-.venv/bin/python src/logscan/main.py --log $DUMMY_LOG --container-name clab-logscan-server &
+echo "[*] Iniciando src/logscan/main.py (Micro-batching de 1s)..."
+.venv/bin/python src/logscan/main.py -l $DUMMY_LOG -c clab-logscan-server -w 1 &
 DAEMON_PID=$!
 sleep 2
 

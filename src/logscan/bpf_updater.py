@@ -54,8 +54,8 @@ class BpfUpdater:
         
         print(f"[BPF Updater] Injetando regra {ambiente} via bpftool...")
         
-        # Obtém o ID do mapa dinamicamente
-        cmd_get_id = f"{prefix}bpftool map list | grep {self.map_name} | cut -d':' -f1"
+        # Obtém o ID do mapa dinamicamente (pega apenas o primeiro caso existam duplicatas sujas)
+        cmd_get_id = f"{prefix}bpftool map list | grep {self.map_name} | head -n1 | cut -d':' -f1"
         try:
             map_id_str = subprocess.check_output(cmd_get_id, shell=True, text=True).strip()
             if not map_id_str:

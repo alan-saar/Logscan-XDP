@@ -17,37 +17,64 @@ def main():
     """
     Função principal que inicia o pipeline infinito do Logscan.
     """
-    parser = argparse.ArgumentParser(description="Logscan-XDP Daemon")
-    parser.add_argument("--log", type=str, required=True, help="Caminho do log a ser monitorado (ex: /var/log/auth.log)")
-    parser.add_argument("--container-name", type=str, help="Nome do container docker (para ambiente de teste Containerlab)", default=None)
+    parser = argparse.ArgumentParser(
+        description="Logscan-XDP Daemon: Intelligent Log Analyzer and BPF Blocker",
+        add_help=False
+    )
+    
+    # Customizando o help para manter em inglês conforme pedido
+    parser.add_argument("-h", "--help", action="help", default=argparse.SUPPRESS,
+                        help="Show this help message and exit")
+    parser.add_argument("-l", "--log", type=str, required=True, 
+                        help="Path to the log file to monitor (e.g., /var/log/auth.log)")
+    parser.add_argument("-c", "--container-name", type=str, default=None,
+                        help="Docker container name (for Containerlab testbed environment)")
+    parser.add_argument("-w", "--window", type=int, default=10,
+                        help="Time window in seconds for batch analysis (default: 10)")
+    
     args = parser.parse_args()
 
-    print(f"[*] Iniciando Logscan-XDP Daemon...")
-    print(f"[*] Monitorando arquivo: {args.log}")
+    print(f"[*] Starting Logscan-XDP Daemon...")
+    print(f"[*] Monitoring file: {args.log}")
+    print(f"[*] Batch analysis window: {args.window} seconds")
     if args.container_name:
-        print(f"[*] Modo Teste Ativo: Atualizando BPF Map via docker exec no container '{args.container_name}'")
+        print(f"[*] Test Mode Active: Updating BPF Map via docker exec in container '{args.container_name}'")
 
     tailer = LogTailer(args.log)
     scanner = LogScanner()
     bpf_updater = BpfUpdater(map_name="malicious_ips", container_name=args.container_name)
 
+    current_batch = []
+    window_start_time = time.time()
+
     try:
-        # Pipeline contínuo
+        # Pipeline contínuo (Micro-batching)
         for line in tailer.tail():
+            if line:
+                current_batch.append(line)
+            
+            # Checa se a janela temporal expirou
+            current_time = time.time()
+            if (current_time - window_start_time) >= args.window:
+                if current_batch:
+                    # Submete o lote inteiro ao motor do Logscan
+                    anomalous_ips = scanner.process_window(current_batch)
+                    
+                    for source_ip in anomalous_ips:
+                        print(f"[!] Cluster anômalo detectado! IP de origem: {source_ip}")
+                        # Atualiza o mapa BPF no kernel
+                        bpf_updater.block_ip(source_ip)
+                
+                # Reseta a janela
+                current_batch = []
+                window_start_time = time.time()
+                
+            # Evita busy-waiting agressivo caso não haja linhas novas
             if not line:
                 time.sleep(0.1)
-                continue
-            
-            # Submete a linha ao motor do Logscan
-            anomaly_detected, source_ip = scanner.process_log_line(line)
-            
-            if anomaly_detected and source_ip:
-                print(f"[!] Cluster anômalo detectado! IP de origem: {source_ip}")
-                # Atualiza o mapa BPF no kernel
-                bpf_updater.block_ip(source_ip)
                 
     except KeyboardInterrupt:
-        print("\n[*] Encerrando Logscan-XDP Daemon...")
+        print("\n[*] Stopping Logscan-XDP Daemon...")
 
 if __name__ == "__main__":
     main()
