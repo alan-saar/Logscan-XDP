@@ -1,0 +1,16 @@
+# Core do Projeto
+drain3==0.9.11
+
+# Deep Learning (Para o logdeep)
+torch
+torchvision
+
+# Análise de Dados e Resultados
+pandas
+numpy
+scikit-learn
+
+# Jupyter e Visualização (Para a pasta results)
+jupyterlab
+matplotlib
+seaborn
