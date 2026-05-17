@@ -1,7 +1,7 @@
 <div align="center">
     <img src="assets/logo.png" width="400" alt="Logscan-XDP Logo">
     <h1>🛡️ Logscan-XDP</h1>
-    <i>Dynamic Threat Mitigation in the Kernel based on Automatic Log Clustering powered by DBSCAN and C-eBPF</i>
+    <i>Accelerating Deep Learning Log Anomaly Detection (DeepLog) using eBPF/XDP In-Kernel Pre-processing</i>
     <br>
     <b>Version: 1.0</b>
 </div>
@@ -24,25 +24,22 @@ graph TD;
     classDef user fill:#dae8fc,stroke:#333,stroke-width:2px;
     classDef external fill:#fff2cc,stroke:#333,stroke-width:2px;
 
-    Attacker([Attacker Traffic / Script]) -->|Packets| NIC(Network Interface Card):::kernel
+    LogSource([System/App Logs]) -->|Events| Syscalls:::kernel
 
     subgraph Kernel Space [Kernel Space - eBPF]
-        NIC --> XDPProg{XDP Program}:::kernel
-        XDPProg -->|Lookup Malicious IP | BPFMap[(eBPF Hash Map)]:::kernel
-        XDPProg -- If in the Map --> DropPacket((XDP_DROP <br/>)):::kernel
-        XDPProg -- If clean --> NetStack[Linux Network Stack]:::kernel
+        Syscalls --> eBPFProg{eBPF Kprobes/XDP}:::kernel
+        eBPFProg -->|Identify Hotspots / Normal Patterns| BPFMap[(eBPF Hash Map)]:::kernel
+        eBPFProg -- Filtered / Aggregated Logs --> PerfBuffer[eBPF Ring/Perf Buffer]:::kernel
     end
 
     subgraph User Space [User Space]
-        NetStack --> App[Application <br/> Apache / SSHD]:::user
-        App -->|Writes Logfile| LogFile[(File: /var/log/*)]:::user
-        LogFile -->|Real-time Tail| LogScan[Logscan Pipeline <br/> DBSCAN + TF-IDF]:::user
-        LogScan -->|Evaluate Pattern Clusters| AnomalyDetect{Cluster <br/> is Anomalous?}:::user
-        AnomalyDetect -- Yes --> ExtractIP[Extract source IP <br/> from template]:::user
-        ExtractIP -.-> |Update the keys <br/> via bpf syscalls| BPFMap
+        PerfBuffer --> LogParser[Log Parser / Drain]:::user
+        LogParser --> DeepLog[DeepLog / LogAnomaly <br/> PyTorch Model]:::user
+        DeepLog -->|Predict| AnomalyDetect{Anomaly Detected?}:::user
+        AnomalyDetect -- Yes --> Alert((Alert / Mitigation)):::user
     end
 
-    class Attacker,NIC,DropPacket external;
+    class LogSource,Alert external;
 ```
 
 ---
@@ -51,8 +48,8 @@ graph TD;
 
 - `assets/`: Static assets such as logos and images.
 - `src/`: Source code directory for the project.
-  - `ebpf/`: eBPF/XDP C programs and libbpf headers to be injected into the kernel (Data Plane).
-  - `logscan/`: User-space Python daemon using bcc to interface with eBPF maps and perform log clustering (Control Plane).
+  - `ebpf/`: eBPF/XDP C programs for log filtering and high-performance pre-processing in the kernel.
+  - `logdeep/`: Submodule containing PyTorch implementations of deep learning-based log anomaly detection models (DeepLog).
 
 ---
 
