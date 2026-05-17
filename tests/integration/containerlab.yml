@@ -1,0 +1,24 @@
+# Papel: O Laboratório de Testes
+# O que faz: Descreve a topologia de rede isolada usada para validação científica.
+# Levanta dois nós: O Nó Vítima (onde o eBPF e a IA rodam) e o Nó Atacante/Gerador 
+# (que fará o replay dos logs do dataset HDFS).
+
+name: logscan-lab
+topology:
+  nodes:
+    # Nó onde roda o Logscan (Kernel + IA)
+    victim_server:
+      kind: linux
+      image: ubuntu:22.04
+      # Privilégios necessários para eBPF
+      binds:
+        - /lib/modules:/lib/modules:ro
+        - /usr/src:/usr/src:ro
+
+    # Nó que injeta o tráfego pesado / Replay
+    traffic_generator:
+      kind: linux
+      image: ubuntu:22.04
+
+  links:
+    - endpoints: ["victim_server:eth1", "traffic_generator:eth1"]
