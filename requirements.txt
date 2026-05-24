@@ -17,3 +17,6 @@ seaborn
 
 # para criar as barras de progresso
 tqdm
+
+# para testes
+pytest

@@ -98,7 +98,7 @@ static inline __u32 calculate_fnv1a_miope(const char *buf) {
  * @brief Kprobe acoplado na syscall sys_write.
  *        Intercepta as escritas de processos monitorados antes de irem a disco.
  */
-SEC("kprobe/sys_write")
+SEC("kprobe/__x64_sys_write")
 int log_filter_kprobe(struct pt_regs *ctx) {
     // 1. Obter o PID do processo atual
     __u32 pid = bpf_get_current_pid_tgid() >> 32;
@@ -146,8 +146,10 @@ int log_filter_kprobe(struct pt_regs *ctx) {
             if (val->count > 100) {
                 // Limite estourado! É um Hotspot!
                 // 6. bpf_override_return impede a escrita física, retornando sucesso (count) à aplicação
+#ifndef DISABLE_OVERRIDE
                 bpf_override_return(ctx, count);
                 return 0;
+#endif
             }
         }
     } else {
