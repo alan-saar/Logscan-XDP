@@ -1,6 +1,6 @@
 # Papel: O Laboratório de Testes
 # O que faz: Descreve a topologia de rede isolada usada para validação científica.
-# Levanta dois nós: O Nó Vítima (onde o eBPF e a IA rodam) e o Nó Atacante/Gerador 
+# Levanta dois nós: O Nó Vítima (onde o eBPF e a IA rodam) e o Nó Atacante/Gerador
 # (que fará o replay dos logs do dataset HDFS).
 
 name: logscan-lab
@@ -10,7 +10,7 @@ topology:
     victim_server:
       kind: linux
       image: ubuntu:22.04
-      # Privilégios necessários para eBPF
+      privileged: true  # Permite carregar programas eBPF e XDP no Kernel do host
       binds:
         - /lib/modules:/lib/modules:ro
         - /usr/src:/usr/src:ro

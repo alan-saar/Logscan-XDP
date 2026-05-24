@@ -4,9 +4,12 @@ CFLAGS = -O2 -g -target bpf -D__TARGET_ARCH_x86
 SRC_DIR = src/ebpf
 OBJ_DIR = src/ebpf
 
-all: $(OBJ_DIR)/main.bpf.o
+all: $(OBJ_DIR)/main.bpf.o $(OBJ_DIR)/log_filter.bpf.o
 
 $(OBJ_DIR)/main.bpf.o: $(SRC_DIR)/main.bpf.c $(SRC_DIR)/logscanxdp.h $(SRC_DIR)/vmlinux.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/log_filter.bpf.o: $(SRC_DIR)/log_filter.bpf.c $(SRC_DIR)/vmlinux.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
