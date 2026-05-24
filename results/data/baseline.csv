@@ -1,0 +1,2 @@
+Precision,Recall,F1_Score,TrainingTimeSeconds,PredictionTimeSeconds,Max_CPU_Percent,Max_Memory_Percent
+86.425,93.919,90.016,12.105356931686401,75.64322757720947,334.9,3.646796759471007
