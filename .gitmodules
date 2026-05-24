@@ -1,3 +1,4 @@
 [submodule "src/logdeep"]
 	path = src/logdeep
-	url = https://github.com/d0ng1ee/logdeep.git
+  #url = https://github.com/d0ng1ee/logdeep.git
+  url = git@github.com:alan-saar/logdeep.git
