@@ -14,11 +14,24 @@ topology:
       binds:
         - /lib/modules:/lib/modules:ro
         - /usr/src:/usr/src:ro
+        - /home/saar/code/mestrado/logscan-xdp:/app
+      exec:
+        - apt-get update
+        - apt-get install -y iproute2 bpftool python3 python3-pip
+        - ip addr add 10.10.10.1/24 dev eth1
+        - ip link set eth1 up
 
     # Nó que injeta o tráfego pesado / Replay
     traffic_generator:
       kind: linux
       image: ubuntu:22.04
+      binds:
+        - /home/saar/code/mestrado/logscan-xdp:/app
+      exec:
+        - apt-get update
+        - apt-get install -y iproute2 python3
+        - ip addr add 10.10.10.2/24 dev eth1
+        - ip link set eth1 up
 
   links:
     - endpoints: ["victim_server:eth1", "traffic_generator:eth1"]
