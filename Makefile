@@ -14,3 +14,7 @@ $(OBJ_DIR)/log_filter.bpf.o: $(SRC_DIR)/log_filter.bpf.c $(SRC_DIR)/vmlinux.h
 
 clean:
 	rm -f $(OBJ_DIR)/*.o
+
+.PHONY: integration-test
+integration-test:
+	@bash tests/integration/run_integration_test.sh
