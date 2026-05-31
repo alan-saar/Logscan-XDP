@@ -9,22 +9,20 @@ topology:
     # Nó onde roda o Logscan (Kernel + IA)
     victim_server:
       kind: linux
-      image: ubuntu:22.04
-      privileged: true  # Permite carregar programas eBPF e XDP no Kernel do host
+      image: ubuntu:24.04
       binds:
         - /lib/modules:/lib/modules:ro
-        - /usr/src:/usr/src:ro
         - /home/saar/code/mestrado/logscan-xdp:/app
       exec:
         - apt-get update
-        - apt-get install -y iproute2 bpftool python3 python3-pip
+        - apt-get install -y iproute2 python3 python3-pip bpftool
         - ip addr add 10.10.10.1/24 dev eth1
         - ip link set eth1 up
 
     # Nó que injeta o tráfego pesado / Replay
     traffic_generator:
       kind: linux
-      image: ubuntu:22.04
+      image: ubuntu:24.04
       binds:
         - /home/saar/code/mestrado/logscan-xdp:/app
       exec:
