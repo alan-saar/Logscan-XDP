@@ -58,7 +58,7 @@ def main():
     # Configura buffer de envio estendido no socket para evitar gargalos em modo flood
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 4*1024*1024)
 
-    input("\n[Pressione ENTER para iniciar a transmissão do Replay...]\n")
+    # input("\n[Pressione ENTER para iniciar a transmissão do Replay...]\n")
 
     print("[*] Transmitindo mensagens de log...")
     start_time = time.time()

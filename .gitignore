@@ -6,9 +6,11 @@ devrefs*
 
 # Containerlab runtime files (generated on deploy)
 tests/containerlab/clab-logscan/
-
-# Containerlab graph layout annotations (optional, remove to track position)
+tests/integration/clab-logscan-lab/
 *.annotations.json
+
+# Redundant bpftool binary in root
+/bpftool
 
 # Ignore __pycache__ folders
 **/__pycache__/
