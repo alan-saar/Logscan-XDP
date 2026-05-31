@@ -17,3 +17,6 @@ tests/integration/clab-logscan-lab/
 
 # Ignore all compiled Python
 *.pyc
+
+# ide files
+.vscode/
