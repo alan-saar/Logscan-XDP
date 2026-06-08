@@ -25,6 +25,7 @@ import time
 import socket
 import struct
 import shutil
+import argparse
 import threading
 import subprocess
 import psutil
@@ -200,6 +201,11 @@ def evaluate_sequence(model, sequence):
     return False
 
 def main():
+    parser = argparse.ArgumentParser(description="Logscan-XDP Orchestrator Daemon")
+    parser.add_argument("--no-ebpf", action="store_true", help="Desativa o carregamento e execução do filtro eBPF no Kernel")
+    parser.add_argument("--output", type=str, default=None, help="Caminho customizado para salvar o arquivo CSV com os resultados")
+    args = parser.parse_args()
+
     print("==================================================")
     print("🚀 INICIANDO LOGSCAN-XDP ORQUESTRADOR DE ACELERAÇÃO")
     print("==================================================")
@@ -224,14 +230,19 @@ def main():
     print(f"[✅] Gabaritos carregados. Hashes mapeados: {len(hash_to_event)} | Blocos de teste: {len(test_labels)}")
 
     # 2. Carrega o eBPF no Kernel
-    has_ebpf = load_ebpf_program()
+    if args.no_ebpf:
+        print("[*] Flag --no-ebpf ativa. Pulando o carregamento do filtro eBPF no Kernel Space.")
+        has_ebpf = False
+    else:
+        has_ebpf = load_ebpf_program()
 
     # 3. Inicializa o Receptor UDP em thread paralela
     rec_thread = threading.Thread(target=run_udp_receiver, daemon=True)
     rec_thread.start()
 
     # Registra o PID do receptor no eBPF
-    register_receptor_pid(has_ebpf)
+    if has_ebpf:
+        register_receptor_pid(has_ebpf)
 
     print("\n[*] Aguardando início do tráfego para processamento da IA...")
     
@@ -365,9 +376,10 @@ def main():
     print("==================================================")
 
     # 6. Grava os resultados oficiais no CSV
-    print(f"[*] Exportando resultados consolidados para {OUTPUT_CSV}...")
-    os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
-    with open(OUTPUT_CSV, mode='w', encoding='utf-8', newline='') as f:
+    csv_path = args.output if args.output else OUTPUT_CSV
+    print(f"[*] Exportando resultados consolidados para {csv_path}...")
+    os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+    with open(csv_path, mode='w', encoding='utf-8', newline='') as f:
         writer = csv.writer(f)
         writer.writerow([
             "Precision", "Recall", "F1_Score",

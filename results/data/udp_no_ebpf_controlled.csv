@@ -1,0 +1,2 @@
+Precision,Recall,F1_Score,TotalProcessedLogs,EvaluationTimeSeconds,Max_CPU_Percent,Max_Memory_Percent
+38.46689895470383,55.2,45.33880903490759,42229,53.98392987251282,44053.8,0.7243861568655088
