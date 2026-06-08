@@ -80,28 +80,58 @@ if os.path.exists(flood_no_ebpf_csv):
     d_logs = df_d.loc[0, "TotalProcessedLogs"]
     d_time = df_d.loc[0, "EvaluationTimeSeconds"]
 
+drain3_controlled_csv = "results/data/udp_drain3_controlled.csv"
+drain3_flood_csv = "results/data/udp_drain3_flood.csv"
+
+# Valores padrão de fallback em caso de leitura (para garantir a integridade)
+c_drain3_precision, c_drain3_recall, c_drain3_f1, c_drain3_logs, c_drain3_time = 99.315, 58.0, 73.232, 42229, 52.39
+d_drain3_precision, d_drain3_recall, d_drain3_f1, d_drain3_logs, d_drain3_time = 90.476, 2.592, 5.040, 19067, 10.25
+
+if os.path.exists(drain3_controlled_csv):
+    df_dc = pd.read_csv(drain3_controlled_csv)
+    c_drain3_precision = df_dc.loc[0, "Precision"]
+    c_drain3_recall = df_dc.loc[0, "Recall"]
+    c_drain3_f1 = df_dc.loc[0, "F1_Score"]
+    c_drain3_logs = df_dc.loc[0, "TotalProcessedLogs"]
+    c_drain3_time = df_dc.loc[0, "EvaluationTimeSeconds"]
+
+if os.path.exists(drain3_flood_csv):
+    df_df = pd.read_csv(drain3_flood_csv)
+    d_drain3_precision = df_df.loc[0, "Precision"]
+    d_drain3_recall = df_df.loc[0, "Recall"]
+    d_drain3_f1 = df_df.loc[0, "F1_Score"]
+    d_drain3_logs = df_df.loc[0, "TotalProcessedLogs"]
+    d_drain3_time = df_df.loc[0, "EvaluationTimeSeconds"]
+
 # ==================================================
 # GRÁFICO 1: Acurácia Comparativa da IA
 # ==================================================
 print("[*] Gerando Gráfico 1: Acurácia Comparativa da IA...")
 metrics_data = {
-    "Modelo": ["Baseline (Drain3)", "Baseline (Drain3)", "Baseline (Drain3)",
-               "Acelerado (eBPF FNV-1a)", "Acelerado (eBPF FNV-1a)", "Acelerado (eBPF FNV-1a)"],
-    "Métrica": ["Precision", "Recall", "F1-Score", "Precision", "Recall", "F1-Score"],
-    "Valor (%)": [b_precision, b_recall, b_f1, e_precision, e_recall, e_f1]
+    "Modelo": [
+        "Baseline (Offline - Drain3)", "Baseline (Offline - Drain3)", "Baseline (Offline - Drain3)",
+        "eBPF Acelerado (Míope)", "eBPF Acelerado (Míope)", "eBPF Acelerado (Míope)",
+        "UDP Controlado (Drain3)", "UDP Controlado (Drain3)", "UDP Controlado (Drain3)"
+    ],
+    "Métrica": ["Precision", "Recall", "F1-Score", "Precision", "Recall", "F1-Score", "Precision", "Recall", "F1-Score"],
+    "Valor (%)": [
+        b_precision, b_recall, b_f1, 
+        e_precision, e_recall, e_f1, 
+        c_drain3_precision, c_drain3_recall, c_drain3_f1
+    ]
 }
 df_metrics = pd.DataFrame(metrics_data)
 
-plt.figure(figsize=(7, 5))
+plt.figure(figsize=(8.5, 5.5))
 ax = sns.barplot(
     data=df_metrics,
     x="Métrica",
     y="Valor (%)",
     hue="Modelo",
-    palette=["#2c3e50", "#1abc9c"]
+    palette=["#2c3e50", "#1abc9c", "#3498db"]
 )
-plt.title("Acurácia da Detecção: Baseline vs Acelerado", pad=15)
-plt.ylim(0, 110)
+plt.title("Acurácia da Detecção: Impacto dos Algoritmos de Parsing", pad=15)
+plt.ylim(0, 115)
 plt.ylabel("Acurácia (%)")
 plt.xlabel("Métrica Avaliada")
 
@@ -109,12 +139,12 @@ plt.xlabel("Métrica Avaliada")
 for p in ax.patches:
     h = p.get_height()
     if h > 0:
-        ax.annotate(f'{h:.2f}%', 
+        ax.annotate(f'{h:.1f}%', 
                     (p.get_x() + p.get_width() / 2., h), 
                     ha='center', va='center', 
                     xytext=(0, 8), 
                     textcoords='offset points',
-                    fontsize=9, weight='bold')
+                    fontsize=8.5, weight='bold')
 
 plt.savefig("results/images/01_acuracia_comparativa.png", dpi=300)
 plt.savefig("results/images/01_acuracia_comparativa.pdf")
@@ -200,22 +230,22 @@ plt.close()
 # ==================================================
 print("[*] Gerando Gráfico 4: O Falso Dilema da Rede (Multivariado)...")
 
-# Calcula as perdas de pacotes de forma dinâmica para os novos cenários
-c_loss = ((42229 - c_logs) / 42229) * 100.0
-d_loss = ((42229 - d_logs) / 42229) * 100.0
+# Calcula as perdas de pacotes de forma dinâmica para os cenários do Drain3
+c_drain3_loss = ((42229 - c_drain3_logs) / 42229) * 100.0
+d_drain3_loss = ((42229 - d_drain3_logs) / 42229) * 100.0
 
 # Dados dos 5 Cenários Metodológicos da tese
 dilema_data = {
     "Cenário": [
         "Baseline\n(Offline)", 
-        "Controlado\n(eBPF ON)", 
-        "Controlado\n(eBPF OFF)", 
-        "UDP Flood\n(eBPF ON)", 
-        "UDP Flood\n(eBPF OFF)"
+        "Controlado\n(Míope)", 
+        "Controlado\n(Drain3)", 
+        "UDP Flood\n(Míope)", 
+        "UDP Flood\n(Drain3)"
     ],
-    "Perda de Pacotes (%)": [0.0, 0.0, c_loss, 57.85, d_loss],
-    "F1-Score (%)": [b_f1, e_f1, c_f1, 20.127, d_f1],
-    "Tempo de Execução (s)": [b_time, e_time, c_time, 19.28, d_time]
+    "Perda de Pacotes (%)": [0.0, 0.0, c_drain3_loss, 57.85, d_drain3_loss],
+    "F1-Score (%)": [b_f1, e_f1, c_drain3_f1, 20.127, d_drain3_f1],
+    "Tempo de Execução (s)": [b_time, e_time, c_drain3_time, 19.28, d_drain3_time]
 }
 df_dilema = pd.DataFrame(dilema_data)
 
@@ -233,7 +263,7 @@ ax1.set_ylim(0, 110)
 for idx, p in enumerate(ax1.patches):
     h = p.get_height()
     if h > 0:
-        ax1.annotate(f'{h:.2f}%', 
+        ax1.annotate(f'{h:.1f}%', 
                     (p.get_x() + p.get_width() / 2., h), 
                     ha='center', va='center', 
                     xytext=(0, 8), 

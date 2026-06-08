@@ -41,6 +41,7 @@ BASE_DIR = "/home/saar/code/mestrado/logscan-xdp"
 MODEL_PATH = os.path.join(BASE_DIR, "src/logdeep/result/deeplog/deeplog_last.pth")
 HASH_MAP_PATH = os.path.join(BASE_DIR, "full_dataset/HDFS/hash_to_event.json")
 LABELS_PATH = os.path.join(BASE_DIR, "full_dataset/HDFS/HDFS_test_labels.json")
+TEMPLATES_CSV_PATH = os.path.join(BASE_DIR, "full_dataset/HDFS/HDFS_full.log_templates.csv")
 OUTPUT_CSV = os.path.join(BASE_DIR, "results/data/ebpf_accelerated.csv")
 TEST_LOG_PATH = "/tmp/victim_received.log"
 
@@ -76,6 +77,52 @@ def calculate_fnv1a_miope_py(buf):
         hash_val = hash_val ^ b
         hash_val = (hash_val * 16777619) & 0xffffffff
     return hash_val
+
+def compile_templates_regex():
+    """
+    Lê HDFS_full.log_templates.csv e gera expressões regulares compiladas para cada template,
+    permitindo fazer o parsing do Drain3 perfeito em tempo real.
+    """
+    templates = []
+    if not os.path.exists(TEMPLATES_CSV_PATH):
+        print(f"[❌] Erro: Arquivo de templates não encontrado em: {TEMPLATES_CSV_PATH}")
+        return templates
+        
+    print(f"[*] Carregando e compilando templates do Drain3 de {TEMPLATES_CSV_PATH}...")
+    with open(TEMPLATES_CSV_PATH, "r", encoding="utf-8") as f:
+        reader = csv.reader(f)
+        header = next(reader)  # EventId,EventTemplate,Occurrences
+        for row in reader:
+            if len(row) >= 2:
+                # Remove o prefixo 'E' do EventId (ex: 'E42' -> 42)
+                event_id = int(row[0].replace('E', ''))
+                template_str = row[1]
+                
+                # Gera regex: escapa caracteres especiais e substitui <*> por (.*?)
+                parts = template_str.split('<*>')
+                escaped_parts = [re.escape(p) for p in parts]
+                regex_str = "^" + "(.*?)".join(escaped_parts) + "$"
+                
+                try:
+                    compiled = re.compile(regex_str)
+                    templates.append((event_id, compiled, template_str))
+                except Exception as e:
+                    print(f"[⚠️] Falha ao compilar regex para template {template_str}: {e}")
+                    
+    print(f"[✅] Compilados {len(templates)} templates de regex do Drain3.")
+    return templates
+
+def parse_log_with_drain3_templates(line, templates_regex):
+    """
+    Limpa o cabeçalho do log do HDFS e varre as regex dos templates para mapear o EventId correspondente.
+    """
+    parts = line.strip().split(': ', 1)
+    cleaned_line = parts[1] if len(parts) > 1 else line.strip()
+    
+    for event_id, regex_compiled, _ in templates_regex:
+        if regex_compiled.match(cleaned_line):
+            return event_id
+    return None
 
 def load_deeplog_model():
     """
@@ -203,11 +250,13 @@ def evaluate_sequence(model, sequence):
 def main():
     parser = argparse.ArgumentParser(description="Logscan-XDP Orchestrator Daemon")
     parser.add_argument("--no-ebpf", action="store_true", help="Desativa o carregamento e execução do filtro eBPF no Kernel")
+    parser.add_argument("--parser", type=str, choices=["miope", "drain3"], default="miope", help="Algoritmo de parsing: 'miope' (Hashing eBPF) ou 'drain3' (regex ideal)")
     parser.add_argument("--output", type=str, default=None, help="Caminho customizado para salvar o arquivo CSV com os resultados")
     args = parser.parse_args()
 
     print("==================================================")
     print("🚀 INICIANDO LOGSCAN-XDP ORQUESTRADOR DE ACELERAÇÃO")
+    print("    Parser selecionado: " + args.parser)
     print("==================================================")
 
     # 1. Setup inicial e carregamento de gabaritos e modelos
@@ -218,16 +267,21 @@ def main():
         print("    Certifique-se de rodar primeiro o prepare_test_data.py!")
         sys.exit(1)
 
-    print("[*] Carregando mapa de hashes...")
-    with open(HASH_MAP_PATH, "r") as f:
-        # Carrega e converte as chaves do JSON de string para inteiros
-        hash_to_event = {int(k): v for k, v in json.load(f).items()}
+    templates_regex = []
+    hash_to_event = {}
+    if args.parser == "drain3":
+        templates_regex = compile_templates_regex()
+    else:
+        print("[*] Carregando mapa de hashes para o parser Míope...")
+        with open(HASH_MAP_PATH, "r") as f:
+            # Carrega e converte as chaves do JSON de string para inteiros
+            hash_to_event = {int(k): v for k, v in json.load(f).items()}
 
     print("[*] Carregando rótulos reais de teste...")
     with open(LABELS_PATH, "r") as f:
         test_labels = json.load(f)
 
-    print(f"[✅] Gabaritos carregados. Hashes mapeados: {len(hash_to_event)} | Blocos de teste: {len(test_labels)}")
+    print(f"[✅] Gabaritos carregados. Blocos de teste: {len(test_labels)}")
 
     # 2. Carrega o eBPF no Kernel
     if args.no_ebpf:
@@ -298,12 +352,16 @@ def main():
             block_id = match.group(1)
             active_blocks.add(block_id)
 
-            # Calcula o Hash FNV-1a Míope do log recebido
-            hash_id = calculate_fnv1a_miope_py(line)
-            event_num = hash_to_event.get(hash_id)
+            # Executa o parsing com base na flag configurada
+            if args.parser == "drain3":
+                event_num = parse_log_with_drain3_templates(line, templates_regex)
+            else:
+                # Calcula o Hash FNV-1a Míope do log recebido
+                hash_id = calculate_fnv1a_miope_py(line)
+                event_num = hash_to_event.get(hash_id)
 
             if event_num is None:
-                # Se não mapeado, define como classe desconhecida ou ignora
+                # Se não mapeado, ignora
                 continue
 
             with data_lock:

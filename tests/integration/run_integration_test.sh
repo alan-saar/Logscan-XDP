@@ -12,6 +12,7 @@ NC='\033[0m' # Sem cor
 # Valores padrões
 NO_EBPF=false
 RATE=1000
+PARSER="miope"
 OUTPUT_CSV="results/data/ebpf_accelerated.csv"
 
 # Parse de argumentos
@@ -25,26 +26,38 @@ while [[ $# -gt 0 ]]; do
             RATE="$2"
             shift 2
             ;;
+        --parser)
+            PARSER="$2"
+            shift 2
+            ;;
         --output)
             OUTPUT_CSV="$2"
             shift 2
             ;;
         *)
             echo -e "${RED}[❌] Opção desconhecida: $1${NC}"
-            echo "Uso: $0 [--no-ebpf] [--rate <taxa>] [--output <caminho_csv>]"
+            echo "Uso: $0 [--no-ebpf] [--rate <taxa>] [--parser <miope|drain3>] [--output <caminho_csv>]"
             exit 1
             ;;
     esac
 done
 
-# Ajusta o output padrão caso --no-ebpf esteja ativo e o output seja o padrão do ebpf
-if [ "$NO_EBPF" = true ] && [ "$OUTPUT_CSV" = "results/data/ebpf_accelerated.csv" ]; then
-    OUTPUT_CSV="results/data/udp_no_ebpf.csv"
+# Ajusta o output padrão
+if [ "$OUTPUT_CSV" = "results/data/ebpf_accelerated.csv" ]; then
+    if [ "$PARSER" = "drain3" ]; then
+        if [ "$NO_EBPF" = true ]; then
+            OUTPUT_CSV="results/data/udp_drain3_controlled.csv"
+        else
+            OUTPUT_CSV="results/data/udp_drain3_ebpf.csv"
+        fi
+    elif [ "$NO_EBPF" = true ]; then
+        OUTPUT_CSV="results/data/udp_no_ebpf.csv"
+    fi
 fi
 
 echo -e "${CYAN}=================================================="
 echo -e "🚀 INICIANDO PIPELINE DE AUTOMACÃO: LOGSCAN-XDP"
-echo -e "   Cenário: eBPF=$([ "$NO_EBPF" = true ] && echo "OFF" || echo "ON") | Rate=${RATE} logs/s | Output=${OUTPUT_CSV}"
+echo -e "   Cenário: eBPF=$([ "$NO_EBPF" = true ] && echo "OFF" || echo "ON") | Parser=${PARSER} | Rate=${RATE} logs/s | Output=${OUTPUT_CSV}"
 echo -e "==================================================${NC}"
 
 # Obtém a raiz do projeto de forma dinâmica (um nível acima de tests/integration)
@@ -83,7 +96,7 @@ MAIN_ARGS=""
 if [ "$NO_EBPF" = true ]; then
     MAIN_ARGS="--no-ebpf"
 fi
-MAIN_ARGS="${MAIN_ARGS} --output /app/${OUTPUT_CSV}"
+MAIN_ARGS="${MAIN_ARGS} --parser ${PARSER} --output /app/${OUTPUT_CSV}"
 
 echo -e "\n${BLUE}[*] Passo 5: Inicializando o Daemon Orquestrador (DeepLog) com args: ${MAIN_ARGS}...${NC}"
 sudo podman exec -d clab-logscan-lab-victim_server sh -c "python3 -u /app/src/main.py ${MAIN_ARGS} > /app/orchestrator.log 2>&1"
