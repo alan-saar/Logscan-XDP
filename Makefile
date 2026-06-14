@@ -1,5 +1,6 @@
 CC = clang
-CFLAGS = -O2 -g -target bpf -D__TARGET_ARCH_x86 -DDISABLE_OVERRIDE
+# CFLAGS = -O2 -g -target bpf -D__TARGET_ARCH_x86 -DDISABLE_OVERRIDE
+CFLAGS = -O2 -g -target bpf -D__TARGET_ARCH_x86 -DDISABLE_OVERRIDE -I/usr/include -I/usr/include/x86_64-linux-gnu
 
 SRC_DIR = src/ebpf
 OBJ_DIR = src/ebpf
