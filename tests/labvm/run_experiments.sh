@@ -93,12 +93,18 @@ run_round() {
         cmd="${cmd} --no-ebpf"
     fi
 
+    # Define o interpretador Python do virtualenv para que as dependências sejam resolvidas mesmo sob sudo
+    local python_bin="${BASE_DIR}/.venv-logscan/bin/python3"
+    if [ ! -f "$python_bin" ]; then
+        python_bin="python3"
+    fi
+
     # Executa com sudo se eBPF estiver ativo para permitir carregamento do kprobe
     if [ "$no_ebpf_flag" = "false" ]; then
         echo -e "${YELLOW}[*] Executando com sudo para carregamento do filtro eBPF...${NC}"
-        sudo -E python3 ${RECEIVER_SCRIPT} --parser ${parser_type} --scenario "${scenario_name}" --output "${OUTPUT_CSV}"
+        sudo -E "$python_bin" ${RECEIVER_SCRIPT} --parser ${parser_type} --scenario "${scenario_name}" --output "${OUTPUT_CSV}"
     else
-        python3 ${RECEIVER_SCRIPT} --parser ${parser_type} --scenario "${scenario_name}" --output "${OUTPUT_CSV}" --no-ebpf
+        "$python_bin" ${RECEIVER_SCRIPT} --parser ${parser_type} --scenario "${scenario_name}" --output "${OUTPUT_CSV}" --no-ebpf
     fi
 
     echo -e "${GREEN}[✅] Rodada ${round_num} concluída!${NC}"
