@@ -98,7 +98,7 @@ run_round() {
         echo -e "${YELLOW}[*] Executando com sudo para carregamento do filtro eBPF...${NC}"
         sudo -E python3 ${RECEIVER_SCRIPT} --parser ${parser_type} --scenario "${scenario_name}" --output "${OUTPUT_CSV}"
     else
-        python3 ${RECEIVER_SCRIPT} --parser ${parser_type} --scenario "${scenario_name}" --output "${OUTPUT_CSV}"
+        python3 ${RECEIVER_SCRIPT} --parser ${parser_type} --scenario "${scenario_name}" --output "${OUTPUT_CSV}" --no-ebpf
     fi
 
     echo -e "${GREEN}[✅] Rodada ${round_num} concluída!${NC}"

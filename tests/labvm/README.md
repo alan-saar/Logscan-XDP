@@ -61,9 +61,10 @@ A VM Vítima rodará a inferência de IA e o receptor com suporte a eBPF.
 
 1.  **Clonar o repositório ou copiar a pasta do projeto**:
     ```bash
-    git clone https://github.com/alan-saar/Logscan-XDP.git /home/saar/code/mestrado/logscan-xdp
+    git clone --recursive https://github.com/alan-saar/Logscan-XDP.git /home/saar/code/mestrado/logscan-xdp
     cd /home/saar/code/mestrado/logscan-xdp
     git checkout feature/xdp-preprocessing
+    git submodule update --init --recursive
     ```
 
 2.  **Criar e configurar o Ambiente Virtual do Python**:
