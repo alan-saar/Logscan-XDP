@@ -121,7 +121,7 @@ Para facilitar o experimento científico e consolidar os dados, criamos o script
 Na VM Vítima, execute o script de automação dentro do ambiente virtual:
 ```bash
 cd /home/saar/code/mestrado/logscan-xdp/tests/labvm
-source ../../.venv-logscan/activate
+source ../../.venv-logscan/bin/activate
 ./run_experiments.sh
 ```
 
