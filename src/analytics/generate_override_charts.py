@@ -104,39 +104,57 @@ def generate_local_duration_chart(df):
 
 def generate_local_accuracy_chart(df):
     """
-    Gráfico comparando o F1-Score resultante para os cenários locais.
+    Gráfico comparando Precision (Precisão/Acurácia), Recall e F1-Score resultante para os cenários locais.
     """
-    print("[*] Gerando Gráfico: Comparação de Acurácia F1-Score Local...")
+    print("[*] Gerando Gráfico: Comparação de Acurácia, Recall e F1-Score Local...")
     
     name_map = {
-        "Baseline_Local_Drain3": "Baseline Local\n(Drain3 Regex)",
-        "Baseline_Local_MIOPE": "Baseline Local\n(Míope Python)",
-        "eBPF_Local_Override_MIOPE": "Logscan-XDP Local\n(eBPF Override)"
+        "Baseline_Local_Drain3": "Baseline Local (Drain3)",
+        "Baseline_Local_MIOPE": "Baseline Local (Míope)",
+        "eBPF_Local_Override_MIOPE": "Logscan-XDP Local (eBPF Override)"
     }
     df["Cenário"] = df["Scenario"].map(name_map)
     df_filtered = df.dropna(subset=["Cenário"]).copy()
     
-    plt.figure(figsize=(7, 5))
-    ax = sns.barplot(
-        data=df_filtered,
-        x="Cenário",
-        y="F1_Score",
-        palette=["#9b59b6", "#34495e", "#2ecc71"],
-        width=0.5
+    # Transforma em formato longo (melted) para o Seaborn
+    melted = df_filtered.melt(
+        id_vars=["Cenário"], 
+        value_vars=["Precision", "Recall", "F1_Score"], 
+        var_name="Métrica", 
+        value_name="Valor (%)"
     )
-    plt.title("Acurácia F1-Score em Ambiente Local Sem Rede", pad=15)
-    plt.ylabel("F1-Score (%)")
-    plt.xlabel("")
-    plt.ylim(0, 110)
+    
+    # Renomeia as métricas para exibição em português
+    metric_map = {
+        "Precision": "Precisão (Acurácia)",
+        "Recall": "Recall",
+        "F1_Score": "F1-Score"
+    }
+    melted["Métrica"] = melted["Métrica"].map(metric_map)
+    
+    plt.figure(figsize=(9, 6))
+    ax = sns.barplot(
+        data=melted,
+        x="Métrica",
+        y="Valor (%)",
+        hue="Cenário",
+        palette=["#34495e", "#3498db", "#2ecc71"]
+    )
+    plt.title("Comparativo de Acurácia, Recall e F1-Score em Ambiente Local", pad=15)
+    plt.ylabel("Porcentagem (%)")
+    plt.xlabel("Métrica Avaliada")
+    plt.ylim(0, 115)
+    plt.legend(title="Cenário Local", loc="upper right")
     
     for p in ax.patches:
         h = p.get_height()
-        ax.annotate(f'{h:.2f}%', 
-                    (p.get_x() + p.get_width() / 2., h), 
-                    ha='center', va='center', 
-                    xytext=(0, 8), 
-                    textcoords='offset points',
-                    fontsize=10, weight='bold')
+        if h > 0:
+            ax.annotate(f'{h:.2f}%', 
+                        (p.get_x() + p.get_width() / 2., h), 
+                        ha='center', va='center', 
+                        xytext=(0, 8), 
+                        textcoords='offset points',
+                        fontsize=9, weight='bold')
         
     plt.savefig("results/images/override/override_02_acuracia_f1.png", dpi=300)
     plt.savefig("results/images/override/override_02_acuracia_f1.pdf")
