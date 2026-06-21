@@ -168,3 +168,33 @@ Ele conterá as seguintes colunas para cada cenário testado:
 *   `MaxCPU` / `MaxRAM`: Pico de consumo de recursos de CPU e RAM de hardware.
 
 Esses dados podem ser copiados de volta para a sua máquina host para gerar gráficos comparativos idênticos aos exibidos nos resultados de laboratório.
+
+---
+
+## 5. Validação Local com eBPF Override Return (Sem Rede)
+
+Esta suíte estende os testes para permitir a **validação direta do eBPF com a chamada `bpf_override_return` ativa**, eliminando completamente o canal de comunicação UDP (rede). Os logs do HDFS são lidos e escritos em arquivo de forma local na própria VM Vítima. O kprobe eBPF intercepta o `sys_write` da gravação, aplicando o descarte de hotspots diretamente no Kernel e forçando o retorno de sucesso à aplicação local.
+
+### 5.1. Como Executar os Experimentos de Override Return
+
+1.  **Iniciar a bateria de testes na VM Vítima**:
+    Navegue até a pasta de testes locais e execute o script orquestrador:
+    ```bash
+    cd /home/saar/code/mestrado/logscan-xdp/tests/labvm
+    source ../../.venv-logscan/activate
+    ./run_experiments_overrride_return.h
+    ```
+    *(Nota: Você também pode executá-lo via `./run_experiments_override_return.sh`).*
+
+2.  **Cenários Automatizados pelo Script**:
+    O script rodará de forma 100% autônoma (sem necessitar de interações na VM Atacante) as seguintes 3 rodadas:
+    *   `Baseline_Local_MIOPE`: Processamento local com parsing de Hashing Míope sem atuação do eBPF (todos os logs chegam à IA).
+    *   `eBPF_Local_Override_MIOPE`: Processamento local com parsing de Hashing Míope e com a Kprobe eBPF aplicando a filtragem ativa via `bpf_override_return` no Kernel.
+    *   `Baseline_Local_Drain3`: Processamento local com parser tradicional Drain3 em User Space (sem eBPF).
+
+3.  **Estrutura dos Resultados**:
+    Os resultados consolidados serão salvos no arquivo de saída global:
+    `results/data/override_return.csv`
+
+    Com essas métricas, é possível comparar de forma pura o overhead computacional do eBPF e a fidelidade da acurácia LSTM isolados de quaisquer ruídos de descarte de pacotes no canal de comunicação UDP.
+

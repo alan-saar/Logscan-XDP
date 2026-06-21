@@ -187,6 +187,21 @@ def run_udp_receiver(port):
         os.close(fd)
         sock.close()
 
+def run_local_file_writer(file_path):
+    print(f"[*] Thread Local: Lendo e gravando {file_path} em {TEST_LOG_PATH}...")
+    fd = os.open(TEST_LOG_PATH, os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                os.write(fd, line.encode("utf-8"))
+    except Exception as e:
+        print(f"[⚠️] Falha ao escrever arquivo localmente: {e}")
+    finally:
+        os.close(fd)
+        print("[*] Thread Local: Escrita concluída.")
+
 def evaluate_sequence(model, sequence):
     if len(sequence) < WINDOW_SIZE + 1:
         return False
@@ -216,6 +231,7 @@ def main():
     parser.add_argument("--port", type=int, default=9999, help="Porta do receptor UDP")
     parser.add_argument("--scenario", type=str, default="UDP_Test", help="Identificador do cenário")
     parser.add_argument("--no-ebpf", action="store_true", help="Desativa o carregamento e execução do filtro eBPF no Kernel")
+    parser.add_argument("--local-file", type=str, default=None, help="Caminho do arquivo de logs para simulação local, eliminando a rede")
     args = parser.parse_args()
 
     print("==================================================")
@@ -253,11 +269,18 @@ def main():
     # Coleta de estatísticas SNMP iniciais do Kernel
     start_net_stats = read_udp_kernel_stats()
 
-    # Inicializa receptor UDP em thread paralela
-    rec_thread = threading.Thread(target=run_udp_receiver, args=(args.port,), daemon=True)
+    # Inicializa receptor UDP ou Simulador de Escrita Local em thread paralela
+    if args.local_file:
+        rec_thread = threading.Thread(target=run_local_file_writer, args=(args.local_file,), daemon=True)
+    else:
+        rec_thread = threading.Thread(target=run_udp_receiver, args=(args.port,), daemon=True)
     rec_thread.start()
 
-    print("\n[*] Aguardando início do tráfego UDP...")
+    if args.local_file:
+        print(f"\n[*] Aguardando início da gravação do arquivo local {args.local_file}...")
+    else:
+        print("\n[*] Aguardando início do tráfego UDP...")
+
     while not os.path.exists(TEST_LOG_PATH):
         time.sleep(0.1)
 
